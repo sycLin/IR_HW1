@@ -23,7 +23,8 @@ DOC_COUNT = 0
 VOCABULARY = []
 UNI_POSTINGS_LISTS = defaultdict(dict) # dict of dict (unigram)
 BI_POSTINGS_LISTS = defaultdict(dict) # dict of dict (bigram)
-DOCUMENT_FREQUENCY = defaultdict(int) # dict of int
+UNI_DOCUMENT_FREQUENCY = defaultdict(int) # dict of int
+BI_DOCUMENT_FREQUENCY = defaultdict(int) # dict of int
 DOC_LENGTHS = defaultdict(float) # dict of float
 
 #########################
@@ -36,7 +37,7 @@ the main function to call
 def main():
 	set_up_from_argv()
 	build_vocabulary()
-	build_postings() # usually takes about 1.5 minutes
+	build_postings_and_document_frequency() # usually takes about 1.5 minutes
 	pass
 
 """
@@ -99,8 +100,8 @@ def build_vocabulary():
 """
 to build the postings lists from the file inverted-file
 """
-def build_postings():
-	global MODEL_DIR, UNI_POSTINGS_LISTS, BI_POSTINGS_LISTS, VOCABULARY
+def build_postings_and_document_frequency():
+	global MODEL_DIR, UNI_POSTINGS_LISTS, BI_POSTINGS_LISTS, VOCABULARY, UNI_DOCUMENT_FREQUENCY, BI_DOCUMENT_FREQUENCY
 	with open(os.path.join(MODEL_DIR, "inverted-file")) as f:
 		section_counter = 0 # to indicate how many more lines to read for this section
 		current_term = "" # to store the current term
@@ -109,15 +110,18 @@ def build_postings():
 			if section_counter == 0:
 				# it is the "vocab line"
 				t1, t2, n = l.split()
-				if t2 == "-1":
+				t1, t2, n = int(t1), int(t2), int(n)
+				if t2 == -1:
 					# it's a unigram
 					gram_indicator = 1
-					current_term = VOCABULARY[int(t1)]
+					current_term = VOCABULARY[t1]
+					UNI_DOCUMENT_FREQUENCY[current_term] = n
 				else:
 					# it's a bigram
 					gram_indicator = 2
-					current_term = VOCABULARY[int(t1)] + " " + VOCABULARY[int(t2)] # note: a space is put between the bigram
-				section_counter = int(n)
+					current_term = VOCABULARY[t1] + " " + VOCABULARY[t2] # note: a space is put between the bigram
+					BI_DOCUMENT_FREQUENCY[current_term] = n
+				section_counter = n
 			else:
 				# it is the "document line"
 				doc_id, count = l.split()
@@ -132,12 +136,6 @@ def build_postings():
 					sys.exit(-1)
 				section_counter -= 1
 
-
-"""
-to compute the document frequency for all terms
-"""
-def compute_document_frequencies():
-	pass
 
 """
 to compute the lengths for every document
