@@ -20,8 +20,9 @@ NTCIR_DIR = ""
 ########################################
 
 DOC_COUNT = 0
-VOCABULARY = set()
-POSTINGS_LISTS = defaultdict(dict) # dict of dict
+VOCABULARY = []
+UNI_POSTINGS_LISTS = defaultdict(dict) # dict of dict (unigram)
+BI_POSTINGS_LISTS = defaultdict(dict) # dict of dict (bigram)
 DOCUMENT_FREQUENCY = defaultdict(int) # dict of int
 DOC_LENGTHS = defaultdict(float) # dict of float
 
@@ -35,6 +36,7 @@ the main function to call
 def main():
 	set_up_from_argv()
 	build_vocabulary()
+	build_postings() # usually takes about 1.5 minutes
 	pass
 
 """
@@ -88,16 +90,47 @@ to build the vocabulary from the file vocab.all
 def build_vocabulary():
 	global MODEL_DIR, VOCABULARY
 	with open(os.path.join(MODEL_DIR, "vocab.all")) as f:
-		next(f) # skipping the first line, which indicates the encoding
+		# no need to skip the first line with: next(f)
+		# because the id can match the list index directly
 		for raw_line in f:
 			term = raw_line.strip()
-			VOCABULARY.add(term)
+			VOCABULARY.append(term)
 
 """
 to build the postings lists from the file inverted-file
 """
 def build_postings():
-	pass
+	global MODEL_DIR, UNI_POSTINGS_LISTS, BI_POSTINGS_LISTS, VOCABULARY
+	with open(os.path.join(MODEL_DIR, "inverted-file")) as f:
+		section_counter = 0 # to indicate how many more lines to read for this section
+		current_term = "" # to store the current term
+		gram_indicator = 0 # to indicaate unigram (1) / bigram (2)
+		for l in f:
+			if section_counter == 0:
+				# it is the "vocab line"
+				t1, t2, n = l.split()
+				if t2 == "-1":
+					# it's a unigram
+					gram_indicator = 1
+					current_term = VOCABULARY[int(t1)]
+				else:
+					# it's a bigram
+					gram_indicator = 2
+					current_term = VOCABULARY[int(t1)] + " " + VOCABULARY[int(t2)] # note: a space is put between the bigram
+				section_counter = int(n)
+			else:
+				# it is the "document line"
+				doc_id, count = l.split()
+				doc_id, count = int(doc_id), int(count)
+				# put into the postings list
+				if gram_indicator == 1:
+					UNI_POSTINGS_LISTS[current_term][doc_id] = count
+				elif gram_indicator == 2:
+					BI_POSTINGS_LISTS[current_term][doc_id] = count
+				else:
+					print >> sys.stderr, "error: unknown gram_indicator = %d" % (gram_indicator)
+					sys.exit(-1)
+				section_counter -= 1
 
 
 """
