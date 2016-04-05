@@ -205,14 +205,28 @@ def get_idf(term, gram_indicator):
 		else:
 			return 0.0
 	else:
-		print >> sys.stderr, "error: unknown gram_indicator in compute_importance(): %d" % (gram_indicator)
+		print >> sys.stderr, "error: unknown gram_indicator in get_idf(): %d" % (gram_indicator)
 		sys.exit(-1)
 
 """
 to compute the cosine similarity for two vectors
+terms: the query terms that have been well extracted
+doc_id: the id of the document to compute similarity
+gram_indicator: to specify unigram (1) / bigram (2)
 """
-def compute_cos_similarity():
-	pass
+def compute_cos_similarity(terms, doc_id, gram_indicator):
+	if gram_indicator == 1:
+		global VOCABULARY, DOC_LENGTHS
+		similarity = 0.0
+		for term in terms:
+			if term in VOCABULARY:
+				similarity += get_idf(term, gram_indicator) * compute_importance(term, doc_id, gram_indicator)
+		return (similarity / DOC_LENGTHS[doc_id])
+	elif gram_indicator == 2:
+		print >> sys.stderr, "warning: compute_cos_similarity() for bigram: not yet implemented."
+	else:
+		print >> sys.stderr, "error: unknown gram_indicator in compute_cos_similarity(): %d" % (gram_indicator)
+		sys.exit(-1)
 
 
 if __name__ == "__main__":
