@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import sys
 import os
+import math
 from collections import defaultdict
 
 
@@ -20,6 +21,7 @@ NTCIR_DIR = ""
 ########################################
 
 DOC_COUNT = 0
+DOC_LIST = []
 VOCABULARY = []
 UNI_POSTINGS_LISTS = defaultdict(dict) # dict of dict (unigram)
 BI_POSTINGS_LISTS = defaultdict(dict) # dict of dict (bigram)
@@ -139,21 +141,72 @@ def build_postings_and_document_frequency():
 
 """
 to compute the lengths for every document
+TODO: only unigram lengths finished, bigram not yet!!
 """
 def compute_document_lengths():
-	pass
+	# first lets count the document (and store in DOC_COUNT global)
+	global DOC_LIST, DOC_COUNT, MODEL_DIR
+	with open(os.path.join(MODEL_DIR, "file-list")) as f:
+		for line in f:
+			DOC_LIST.append(line.strip())
+	DOC_COUNT = len(DOC_LIST)
+	# next, compute the length for every doc
+	global VOCABULARY, DOC_LENGTHS
+	for doc_id in range(len(DOC_LIST)):
+		length = 0
+		for term_id in range(len(VOCABULARY)):
+			if term_id == 0:
+				# term_id 0 does not exist.
+				# that was actually the encoding line.
+				continue
+			length += (compute_importance(VOCABULARY[term_id], doc_id, 1) ** 2)
+		DOC_LENGTHS[doc_id] = math.sqrt(length)
 
 """
 to calculate the importance of a term in a certain document
+(we use TF-IDF as importance here)
+term: the term to compute importance
+doc_id: the id of the document to compute importance
+gram_indicator: to specify unigram (1) / bigram (2)
 """
-def compute_importance():
-	pass
+def compute_importance(term, doc_id, gram_indicator):
+	global UNI_POSTINGS_LISTS, BI_POSTINGS_LISTS
+	if gram_indicator == 1:
+		# unigram
+		if doc_id in UNI_POSTINGS_LISTS[term]:
+			return UNI_POSTINGS_LISTS[term][doc_id] * get_idf(term, gram_indicator)
+		else:
+			return 0.0
+	elif gram_indicator == 2:
+		# bigram
+		if doc_id in BI_POSTINGS_LISTS[term]:
+			return BI_POSTINGS_LISTS[term][doc_id] * get_idf(term, gram_indicator)
+		else:
+			return 0.0
+	else:
+		print >> sys.stderr, "error: unknown gram_indicator in compute_importance(): %d" % (gram_indicator)
+		sys.exit(-1)
 
 """
 to compute the inverse-document-frequency from document frequency
+term: the term to get IDF
+gram_indicator: to specify unigram (1) / bigram (2)
 """
-def copmute_idf_from_df():
-	pass
+def get_idf(term, gram_indicator):
+	global UNI_DOCUMENT_FREQUENCY, BI_DOCUMENT_FREQUENCY, DOC_COUNT
+	if gram_indicator == 1:
+		if term in UNI_DOCUMENT_FREQUENCY:
+			return math.log(DOC_COUNT / UNI_DOCUMENT_FREQUENCY[term], 2) # base = 2 here, but it doesn't matter.
+		else:
+			return 0.0
+	elif gram_indicator == 2:
+		if term in BI_DOCUMENT_FREQUENCY:
+			return math.log(DOC_COUNT / BI_DOCUMENT_FREQUENCY[term], 2) # base = 2 here, but it doesn't matter.
+		else:
+			return 0.0
+	else:
+		print >> sys.stderr, "error: unknown gram_indicator in compute_importance(): %d" % (gram_indicator)
+		sys.exit(-1)
 
 """
 to compute the cosine similarity for two vectors
