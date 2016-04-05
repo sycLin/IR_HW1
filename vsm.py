@@ -34,7 +34,15 @@ the main function to call
 """
 def main():
 	set_up_from_argv()
+	build_vocabulary()
 	pass
+
+"""
+to output a hint for usage of this program
+"""
+def print_usage():
+	print >> sys.stderr, "Usage:"
+	print >> sys.stderr, "\t" + __file__ + " <output_path> <query_path> <model_dir_path> <NTCIR_dir_path>"
 
 """
 to get global settings from sys.argv
@@ -45,28 +53,45 @@ def set_up_from_argv():
 	# argv[2]: query file name
 	# argv[3]: model dir
 	# argv[4]: NTCIR dir
-	if os.path.exists(sys.argv[1]):
+	if len(sys.argv) < 5:
+		print >> sys.stderr, "wrong argument count..."
+		print_usage()
+		sys.exit(-1)
+	if not os.path.exists(sys.argv[1]):
 		OUTPUT_FILE_NAME = sys.argv[1]
 	else:
 		print >> sys.stderr, "not a valid output file name: %s" % sys.argv[1]
+		print_usage()
+		sys.exit(-1)
 	if os.path.exists(sys.argv[2]):
 		QUERY_FILE_NAME = sys.argv[2]
 	else:
 		print >> sys.stderr, "not a valid query file name: %s" % sys.argv[2]
+		print_usage()
+		sys.exit(-1)
 	if os.path.isdir(sys.argv[3]):
 		MODEL_DIR = sys.argv[3]
 	else:
 		print >> sys.stderr, "not a valid model dir: %s" % sys.argv[3]
+		print_usage()
+		sys.exit(-1)
 	if os.path.isdir(sys.argv[4]):
 		NTCIR_DIR = sys.argv[4]
 	else:
 		print >> sys.stderr, "not a valid NTCIR dir: %s" % sys.argv[4]
+		print_usage()
+		sys.exit(-1)
 
 """
 to build the vocabulary from the file vocab.all
 """
 def build_vocabulary():
-	pass
+	global MODEL_DIR, VOCABULARY
+	with open(os.path.join(MODEL_DIR, "vocab.all")) as f:
+		next(f) # skipping the first line, which indicates the encoding
+		for raw_line in f:
+			term = raw_line.strip()
+			VOCABULARY.add(term)
 
 """
 to build the postings lists from the file inverted-file
