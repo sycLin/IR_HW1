@@ -2,7 +2,7 @@
 #include <map>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h> // for sqrt()
+#include <math.h> // for sqrt(), log2()
 
 using namespace std;
 
@@ -77,6 +77,7 @@ void print_usage();
 void build_vocabulary();
 void build_document_list();
 void build_postings();
+void build_document_lengths();
 
 ///////////////////////////
 // program entry: main() //
@@ -122,9 +123,13 @@ int main(int argc, char* argv[]) {
 
 	build_document_list();
 
-	// build postings lists and DF
+	// build postings lists, DF, and DOC_LENGTHS
 
 	build_postings();
+
+	// read the query and parse it
+
+	// do the searching
 	
 	return 0;
 }
@@ -176,23 +181,36 @@ void build_document_list() {
 		DOC_LIST[counter] = string(tmp);
 		counter += 1;
 	}
+	DOC_COUNT = counter;
 }
 
 void build_postings() {
+	
+	// initialize the doc lengths to 0.0
+	for(int i=0; i<DOC_COUNT; i++) {
+		UNI_DOC_LENGTHS[i] = 0.0;
+		BI_DOC_LENGTHS[i] = 0.0;
+	}
+
 	// construct the path
 	string path = (MODEL_DIR[MODEL_DIR.length() - 1] == '/') ? (MODEL_DIR + "inverted-file") : (MODEL_DIR + "/inverted-file");
+	
 	// open file and read it
 	FILE* fp = fopen(path.c_str(), "r");
 	if(!fp) {
 		cerr << "cannot open file at: " << path << endl;
 		exit(-1);
 	}
+	int line_counter = 0;
 	while(!feof(fp)) {
 		
 		// read the title line
 		int t1, t2, N;
 		if(fscanf(fp, "%d%d%d", &t1, &t2, &N) == EOF)
 			break;
+		line_counter += 1;
+		if(line_counter % 10000 == 9999)
+			cerr << "\rProcessed " << line_counter << " lines.";
 		
 		// fill in UNI_DF and BI_DF with title line
 		if(t2 == -1) {
@@ -207,18 +225,37 @@ void build_postings() {
 		for(int i=0; i<N; i++) {
 			int doc_id, count;
 			fscanf(fp, "%d%d", &doc_id, &count);
+			line_counter += 1;
+			if(line_counter % 100000 == 99999)
+				cerr << "\rProcessed " << line_counter << " lines.";
 			// put into the postings lists: UNI_POSTINGS and BI_POSTINGS
+			// and accumulate the doc len: UNI_DOC_LENGTHS and BI_DOC_LENGTHS
 			// map<int, map<int, int> > UNI_POSTINGS;
 			// map<pair<int, int>, map<int, int> > BI_POSTINGS;
+			// map<int, double> UNI_DOC_LENGTHS;
+			// map<int, double> BI_DOC_LENGTHS;
 			if(t2 == -1) {
 				// it's unigram
 				UNI_POSTINGS[t1][doc_id] = count;
+				UNI_DOC_LENGTHS[doc_id] += ((count * log2(DOC_COUNT / UNI_DF[t1])) * (count * log2(DOC_COUNT / UNI_DF[t1])));
 			} else {
 				// it's bigram
 				BI_POSTINGS[make_pair(t1, t2)][doc_id] = count;
+				BI_DOC_LENGTHS[doc_id] += ((count * log2(DOC_COUNT / BI_DF[make_pair(t1, t2)])) * (count * log2(DOC_COUNT / BI_DF[make_pair(t1, t2)])));
 			}
 		}
 	}
+	cerr << "\rProcessed " << line_counter << " lines." << endl;
+	// finalize: doc length
+	for(int i=0; i<DOC_COUNT; i++) {
+		UNI_DOC_LENGTHS[i] = sqrt(UNI_DOC_LENGTHS[i]);
+		BI_DOC_LENGTHS[i] = sqrt(BI_DOC_LENGTHS[i]);
+	}
 }
+
+
+
+
+
 
 
