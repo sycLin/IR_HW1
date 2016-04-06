@@ -22,12 +22,14 @@ NTCIR_DIR = ""
 
 DOC_COUNT = 0
 DOC_LIST = []
-VOCABULARY = []
+UNI_VOCABULARY = []
+BI_VOCABULARY = []
 UNI_POSTINGS_LISTS = defaultdict(dict) # dict of dict (unigram)
 BI_POSTINGS_LISTS = defaultdict(dict) # dict of dict (bigram)
 UNI_DOCUMENT_FREQUENCY = defaultdict(int) # dict of int
 BI_DOCUMENT_FREQUENCY = defaultdict(int) # dict of int
-DOC_LENGTHS = defaultdict(float) # dict of float
+UNI_DOC_LENGTHS = defaultdict(float) # dict of float
+BI_DOC_LENGTHS = defaultdict(float) # dict of float
 
 #########################
 # helper functions area #
@@ -37,9 +39,34 @@ DOC_LENGTHS = defaultdict(float) # dict of float
 the main function to call
 """
 def main():
+
+	print >> sys.stderr, "before set_up_from_argv(): (out=%s, q=%s, model=%s, ntcir=%s)" % (OUTPUT_FILE_NAME, QUERY_FILE_NAME, MODEL_DIR, NTCIR_DIR)
 	set_up_from_argv()
+	print >> sys.stderr, "after set_up_from_argv(): (out=%s, q=%s, model=%s, ntcir=%s)" % (OUTPUT_FILE_NAME, QUERY_FILE_NAME, MODEL_DIR, NTCIR_DIR)
+	
+	print >> sys.stderr, "before build_vocabulary(): UNI_VOCABULARY len=%d" % (len(UNI_VOCABULARY))
 	build_vocabulary()
+	print >> sys.stderr, "after build_vocabulary(): UNI_VOCABULARY len=%d" % (len(UNI_VOCABULARY))
+
+	print >> sys.stderr, "before build_postings_and_document_frequency():"
+	print >> sys.stderr, "\t BI_VOCABULARY len=%d," % (len(BI_VOCABULARY))
+	print >> sys.stderr, "\t UNI_POSTINGS_LISTS len=%d," % (len(UNI_POSTINGS_LISTS))
+	print >> sys.stderr, "\t BI_POSTINGS_LISTS len=%d," % (len(BI_POSTINGS_LISTS))
+	print >> sys.stderr, "\t UNI_DOCUMENT_FREQUENCY len=%d," % (len(UNI_DOCUMENT_FREQUENCY))
+	print >> sys.stderr, "\t BI_DOCUMENT_FREQUENCY len=%d" % (len(BI_DOCUMENT_FREQUENCY))
 	build_postings_and_document_frequency() # usually takes about 1.5 minutes
+	print >> sys.stderr, "after build_postings_and_document_frequency():"
+	print >> sys.stderr, "\t BI_VOCABULARY len=%d," % (len(BI_VOCABULARY))
+	print >> sys.stderr, "\t UNI_POSTINGS_LISTS len=%d," % (len(UNI_POSTINGS_LISTS))
+	print >> sys.stderr, "\t BI_POSTINGS_LISTS len=%d," % (len(BI_POSTINGS_LISTS))
+	print >> sys.stderr, "\t UNI_DOCUMENT_FREQUENCY len=%d," % (len(UNI_DOCUMENT_FREQUENCY))
+	print >> sys.stderr, "\t BI_DOCUMENT_FREQUENCY len=%d" % (len(BI_DOCUMENT_FREQUENCY))
+	
+
+	print >> sys.stderr, "before compute_document_lengths(): (uni_len=%d, bi_len=%d)" % (len(UNI_DOC_LENGTHS), len(BI_DOC_LENGTHS))
+	compute_document_lengths()
+	print >> sys.stderr, "after compute_document_lengths(): (uni_len=%d, bi_len=%d)" % (len(UNI_DOC_LENGTHS), len(BI_DOC_LENGTHS))
+	
 	pass
 
 """
@@ -89,25 +116,28 @@ def set_up_from_argv():
 
 """
 to build the vocabulary from the file vocab.all
+(only UNI_VOCABULARY built here)
 """
 def build_vocabulary():
-	global MODEL_DIR, VOCABULARY
+	global MODEL_DIR, UNI_VOCABULARY
 	with open(os.path.join(MODEL_DIR, "vocab.all")) as f:
 		# no need to skip the first line with: next(f)
 		# because the id can match the list index directly
 		for raw_line in f:
 			term = raw_line.strip()
-			VOCABULARY.append(term)
+			UNI_VOCABULARY.append(term)
 
 """
 to build the postings lists from the file inverted-file
 """
 def build_postings_and_document_frequency():
-	global MODEL_DIR, UNI_POSTINGS_LISTS, BI_POSTINGS_LISTS, VOCABULARY, UNI_DOCUMENT_FREQUENCY, BI_DOCUMENT_FREQUENCY
+	global MODEL_DIR, UNI_POSTINGS_LISTS, BI_POSTINGS_LISTS, UNI_DOCUMENT_FREQUENCY, BI_DOCUMENT_FREQUENCY
+	global UNI_VOCABULARY, BI_VOCABULARY
 	with open(os.path.join(MODEL_DIR, "inverted-file")) as f:
 		section_counter = 0 # to indicate how many more lines to read for this section
 		current_term = "" # to store the current term
 		gram_indicator = 0 # to indicaate unigram (1) / bigram (2)
+		line_counter = 0 # to print progress only
 		for l in f:
 			if section_counter == 0:
 				# it is the "vocab line"
@@ -116,13 +146,15 @@ def build_postings_and_document_frequency():
 				if t2 == -1:
 					# it's a unigram
 					gram_indicator = 1
-					current_term = VOCABULARY[t1]
+					current_term = UNI_VOCABULARY[t1]
 					UNI_DOCUMENT_FREQUENCY[current_term] = n
 				else:
 					# it's a bigram
 					gram_indicator = 2
-					current_term = VOCABULARY[t1] + " " + VOCABULARY[t2] # note: a space is put between the bigram
+					current_term = UNI_VOCABULARY[t1] + " " + UNI_VOCABULARY[t2] # note: a space is put between the bigram
 					BI_DOCUMENT_FREQUENCY[current_term] = n
+					# we have to construct the BI_VOCABULARY here
+					BI_VOCABULARY.append(current_term)
 				section_counter = n
 			else:
 				# it is the "document line"
@@ -137,11 +169,14 @@ def build_postings_and_document_frequency():
 					print >> sys.stderr, "error: unknown gram_indicator = %d" % (gram_indicator)
 					sys.exit(-1)
 				section_counter -= 1
-
+			if line_counter % 100000 == 99999:
+				print >> sys.stderr, "\rProcessed %d lines." % (line_counter + 1),
+			line_counter += 1
+		BI_VOCABULARY = list(set(BI_VOCABULARY))
 
 """
 to compute the lengths for every document
-TODO: only unigram lengths finished, bigram not yet!!
+(UNI_DOC_LENGTHS and BI_DOC_LENGTHS)
 """
 def compute_document_lengths():
 	# first lets count the document (and store in DOC_COUNT global)
@@ -151,16 +186,25 @@ def compute_document_lengths():
 			DOC_LIST.append(line.strip())
 	DOC_COUNT = len(DOC_LIST)
 	# next, compute the length for every doc
-	global VOCABULARY, DOC_LENGTHS
+	global VOCABULARY, UNI_DOC_LENGTHS, BI_DOC_LENGTHS
 	for doc_id in range(len(DOC_LIST)):
-		length = 0
-		for term_id in range(len(VOCABULARY)):
+		### print progress bar ###
+		if doc_id % 100 == 99:
+			print >> sys.stderr, "\rProcessed %d/%d files." % (doc_id+1, DOC_COUNT),
+		##########################
+		u_length = 0 # length w.r.t. unigram
+		b_length = 0 # length w.r.t. bigram
+		for term_id in range(len(UNI_VOCABULARY)):
 			if term_id == 0:
 				# term_id 0 does not exist.
 				# that was actually the encoding line.
 				continue
-			length += (compute_importance(VOCABULARY[term_id], doc_id, 1) ** 2)
-		DOC_LENGTHS[doc_id] = math.sqrt(length)
+			u_length += (compute_importance(UNI_VOCABULARY[term_id], doc_id, 1) ** 2)
+		for term_id in range(len(BI_VOCABULARY)):
+			# b_length += (compute_importance(BI_VOCABULARY[term_id], doc_id, 2) ** 2)
+			pass
+		UNI_DOC_LENGTHS[doc_id] = math.sqrt(u_length)
+		BI_DOC_LENGTHS[doc_id] = math.sqrt(b_length)
 
 """
 to calculate the importance of a term in a certain document
