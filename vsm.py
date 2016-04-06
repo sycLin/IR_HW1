@@ -186,7 +186,7 @@ def compute_document_lengths():
 			DOC_LIST.append(line.strip())
 	DOC_COUNT = len(DOC_LIST)
 	# next, compute the length for every doc
-	global VOCABULARY, UNI_DOC_LENGTHS, BI_DOC_LENGTHS
+	global UNI_VOCABULARY, BI_VOCABULARY, UNI_DOC_LENGTHS, BI_DOC_LENGTHS
 	for doc_id in range(len(DOC_LIST)):
 		### print progress bar ###
 		if doc_id % 100 == 99:
