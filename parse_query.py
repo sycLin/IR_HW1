@@ -86,7 +86,7 @@ def build_vocabulary():
 
 def print_usage():
 	print >> sys.stderr, "Usage:"
-	print >> sys.stderr, "\t%s %s %s %s" % (sys.argv[0], "<model_dir>", "<infile>", "<outfile>")
+	print >> sys.stderr, "\t%s %s %s %s %s" % (sys.argv[0], "<model_dir>", "<infile>", "<outfile>", "<outfile2>")
 
 def main():
 	# build the vocabulary (reversed version, chinese character => term_id)
@@ -107,14 +107,15 @@ def main():
 	#    uni = [ug1, ug2, ug3, ...] with each ug an integer (i.e., term_id)
 	#    bi = [bg1, bg2, bg3, ...] with each bg a tuple of 2 term_id (e.g., bg1 = (bgp1, bgp2))
 	grams = []
+	topic_numbers = []
 	for e in root.findall("./*"):
 		if e.tag == "topic":
 			uni = [] # to store all unigram of this topic
 			bi = [] # to store all bigram of this topic
 			for ee in e.findall("./*"):
 				if ee.tag == "number":
-					# no use
-					pass
+					# store the numbers
+					topic_numbers.append(ee.text.strip()[-3:])
 				elif ee.tag == "title":
 					# usually without chinese punctuation, just in case
 					ee.text = removeSpecialCharacters(removeChinesePunctuations(ee.text))
@@ -138,6 +139,9 @@ def main():
 						seq = getTermIdSequence(con)
 						uni = uni + getUnigramFromTermIdSequence(seq)
 						bi = bi + getBigramFromTermIdSequence(seq)
+			# let uni and bi be unique
+			uni = list(set(uni))
+			bi = list(set(bi))
 			grams.append([uni, bi])
 
 	# write all information to file
@@ -150,11 +154,17 @@ def main():
 				f.write("%d\n" % (unigram))
 			for bigram in bi:
 				f.write("%d %d\n" % (bigram[0], bigram[1]))
+		f.close()
+	# write topic numbers to outfile2
+	with open(sys.argv[4], "w") as f:
+		for tn in topic_numbers:
+			f.write("%s\n" % (tn))
+		f.close()
 
 if __name__ == "__main__":
 
 	# check arguments
-	if len(sys.argv) != 4:
+	if len(sys.argv) != 5:
 		print_usage()
 		sys.exit(-1)
 	if not os.path.isdir(sys.argv[1]):
@@ -167,6 +177,10 @@ if __name__ == "__main__":
 		sys.exit(-1)
 	if os.path.exists(sys.argv[3]):
 		print >> sys.stderr, "error: file already exists at: %s" % (sys.argv[3])
+		print_usage()
+		sys.exit(-1)
+	if os.path.exists(sys.argv[4]):
+		print >> sys.stderr, "error: file already exists at: %s" % (sys.argv[4])
 		print_usage()
 		sys.exit(-1)
 
