@@ -1,8 +1,10 @@
 #include <iostream>
 #include <map>
+#include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h> // for sqrt(), log2()
+#define UNI_RATIO 0.8
 
 using namespace std;
 
@@ -78,6 +80,10 @@ void build_vocabulary();
 void build_document_list();
 void build_postings();
 void build_document_lengths();
+void read_query_and_search();
+double compute_uni_similarity(vector<int> uni_query, int doc_id);
+double compute_bi_similarity(vector< pair<int, int> > bi_query, int doc_id);
+bool compare_score_pair(const pair<string, double>&i, const pair<string, double>&j);
 
 ///////////////////////////
 // program entry: main() //
@@ -127,9 +133,10 @@ int main(int argc, char* argv[]) {
 
 	build_postings();
 
-	// read the query and parse it
+	// read the query file, and do the searching
 
-	// do the searching
+	read_query_and_search();
+
 	
 	return 0;
 }
@@ -253,6 +260,107 @@ void build_postings() {
 	}
 }
 
+void read_query_and_search() {
+	FILE* fp = fopen(QUERY_FILE_NAME.c_str(), "r");
+	FILE* outfile = fopen(OUTPUT_FILE_NAME.c_str(), "w");
+	if(!fp) {
+		cerr << "cannot open query file at: " << QUERY_FILE_NAME << endl;
+		exit(-1);
+	}
+	while(!feof(fp)) {
+		
+		// read the number of topics
+		int topic_count;
+		if(fscanf(fp, "%d", &topic_count) == EOF)
+			break;
+		cerr << "topic_count = " << topic_count << endl;
+		
+		// read in each topic
+		for(int t = 0; t < topic_count; t++) {
+			
+			// read the unigram count and bigram count for this topic
+			int u_count, b_count;
+			fscanf(fp, "%d%d", &u_count, &b_count);
+			
+			// prepare two vectors to store the unigrams and bigrams
+			vector<int> unigrams;
+			vector< pair<int, int> > bigrams;
+
+			// read in the unigrams and bigrams into the 2 vectors
+			for(int i = 0; i < u_count; i++) {
+				int tmp;
+				fscanf(fp, "%d", &tmp);
+				unigrams.push_back(tmp);
+			}
+			for(int i = 0; i < b_count; i++) {
+				int tmp1, tmp2;
+				fscanf(fp, "%d%d", &tmp1, &tmp2);
+				bigrams.push_back(make_pair(tmp1, tmp2));
+			}
+
+			// compute the similarity (both unigrams and bigrams) w.r.t. each document
+			vector< pair<string, double> > scores;
+			for(map<int, string>::iterator it = DOC_LIST.begin(); it != DOC_LIST.end(); ++it) {
+				// it->first: the key of the map, i.e., document id
+				// it->second: the value of the map, i.e., the relative path of the doc
+				// double u_sim = compute_uni_similarity(unigrams, it->first);
+				double b_sim = compute_bi_similarity(bigrams, it->first);
+				// cerr << "b_sim = " << b_sim << endl;
+				// the ratio is defined as a constant at the beginning of this file
+				// double total = (0.8) * u_sim + (0.2) * b_sim;
+				double total = b_sim;
+				// double total = u_sim;
+				// push into the vector: scores
+				scores.push_back(make_pair(it->second, total));
+			}
+
+			// sort the scores vector
+			sort(scores.begin(), scores.end(), compare_score_pair); // user-defined compare function
+
+			// output the result
+			int counter = 0;
+			for(vector< pair<string, double> >::iterator it = scores.begin(); it != scores.end(); ++it) {
+				fprintf(outfile, "%s\n", (it->first).c_str());
+				counter += 1;
+				if(counter == 100)
+					break;
+			}
+			fprintf(outfile, "********\n");
+			cerr << "\rProcessed " << t+1 << " topics.";
+		}
+		cerr << endl;
+	}
+	fclose(fp);
+	fclose(outfile);
+}
+
+double compute_uni_similarity(vector<int> uni_query, int doc_id) {
+	double similarity = 0.0;
+	/*
+	for term in query:
+        if term in dictionary:
+            similarity += inverse_document_frequency(term)*imp(term,id)
+    similarity = similarity / length[id]
+	*/
+	for(vector<int>::iterator it = uni_query.begin(); it != uni_query.end(); ++it) {
+		// similarity += (IDF) * (importance w.r.t. doc_id)
+		// importance = postings[term][id]*inverse_document_frequency(term)
+		similarity = similarity + (log2(DOC_COUNT / UNI_DF[(*it)])) * (UNI_POSTINGS[(*it)][doc_id]) * (log2(DOC_COUNT / UNI_DF[(*it)]));
+	}
+	return similarity;
+}
+
+double compute_bi_similarity(vector< pair<int, int> > bi_query, int doc_id) {
+	double similarity = 0.0;
+	for(vector< pair<int, int> >::iterator it = bi_query.begin(); it != bi_query.end(); ++it) {
+		similarity = similarity + (log2(DOC_COUNT / (double)BI_DF[(*it)])) * ((double)BI_POSTINGS[(*it)][doc_id]) * (log2(DOC_COUNT / (double)BI_DF[(*it)]));
+	}
+	return similarity;
+}
+
+bool compare_score_pair(const pair<string, double>&i, const pair<string, double>&j) {
+    return i.second > j.second;
+}
 
 
 
