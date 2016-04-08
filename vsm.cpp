@@ -121,6 +121,8 @@ int main(int argc, char* argv[]) {
 					cerr << "\rprocessed " << doc_id + 1 << " doc.";
 			}
 			cerr << "\rprocessed " << DOC_COUNT << " doc." << endl;
+			// sort by descending order
+			sort(scores.begin(), scores.end(), compare_score_pair);
 		}
 
 		// output the rank
