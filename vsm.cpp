@@ -62,14 +62,6 @@ int main(int argc, char* argv[]) {
 			ROCCHIO_FLAG = true;
 	}
 
-	// debug
-	cerr <<  "inside vsm.cpp" << endl;
-	cerr << "OUTPUT_FILE_NAME = " << OUTPUT_FILE_NAME << endl;
-	cerr << "QUERY_FILE_NAME = " << QUERY_FILE_NAME << endl;
-	cerr << "MODEL_DIR = " << MODEL_DIR << endl;
-	cerr << "do rocchio? " << ROCCHIO_FLAG << endl;
-	exit(0);
-
 	// ---------- building up documents ---------- //
 	cerr << "building up documents ..." << endl;
 	doc_build();
@@ -95,7 +87,6 @@ int main(int argc, char* argv[]) {
 		sort(scores.begin(), scores.end(), compare_score_pair);
 
 		// do Rocchio Pseudo Feedback
-		ROCCHIO_FLAG = true; // debug use
 		if(ROCCHIO_FLAG) {
 			// performing Rocchio Pseudo Feedback
 			cerr << "performing Rocchio..." << endl;
