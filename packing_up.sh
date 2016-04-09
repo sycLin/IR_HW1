@@ -16,4 +16,6 @@ echo "copying necessary files into R04922170/ ..."
 cp Makefile REPORT.pdf compile.sh execute.sh finalize.py parse_query.py vsm.cpp wrap.cpp R04922170
 echo "zipping up the directory ..."
 zip -r R04922170.zip R04922170/
+echo "cleaning up ..."
+rm -rf R04922170
 echo "Done"
