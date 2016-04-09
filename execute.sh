@@ -3,5 +3,5 @@
 # Replace "./my-program" with the command that can execute your program.
 # Remember to preserve " $@" at the end, which will be the program options we give you.
 Command=`./wrap.out $@`
-`$Command`
+$Command
 make clean
