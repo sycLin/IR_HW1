@@ -140,8 +140,8 @@ def main():
 						uni = uni + getUnigramFromTermIdSequence(seq)
 						bi = bi + getBigramFromTermIdSequence(seq)
 			# let uni and bi be unique
-			uni = list(set(uni))
-			bi = list(set(bi))
+			# uni = list(set(uni))
+			# bi = list(set(bi))
 			grams.append([uni, bi])
 
 	# write all information to file

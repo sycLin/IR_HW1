@@ -17,6 +17,7 @@ string MODEL_DIR = "";
 string OUTPUT_FILE_NAME = "";
 string QUERY_FILE_NAME = "";
 string NTCIR_DIR = "";
+string DOC_LEN_FILE_NAME = "";
 
 /* for global data */
 
@@ -70,6 +71,9 @@ map<int, double> UNI_DOC_LENGTHS;
 // value: the length of that document
 map<int, double> BI_DOC_LENGTHS;
 
+// to store the physical lengths of every document
+map<int, int> REAL_DOC_LENGTHS;
+
 
 //////////////////////
 // helper functions //
@@ -78,6 +82,7 @@ map<int, double> BI_DOC_LENGTHS;
 void print_usage();
 void build_vocabulary();
 void build_document_list();
+void build_real_doc_len();
 void build_postings();
 void build_document_lengths();
 void read_query_and_search();
@@ -95,7 +100,8 @@ int main(int argc, char* argv[]) {
 	// argv[2]: query file name
 	// argv[3]: model dir
 	// argv[4]: NTCIR dir
-	if(argc != 5) {
+	// argv[5]: doc_len file
+	if(argc != 6) {
 		print_usage();
 		exit(-1);
 	}
@@ -108,26 +114,39 @@ int main(int argc, char* argv[]) {
 	cerr << "\tq = " << QUERY_FILE_NAME << endl;
 	cerr << "\tmodel = " << MODEL_DIR << endl;
 	cerr << "\tNTCIR = " << NTCIR_DIR << endl;
+	cerr << "\tdoc_len_file = " << DOC_LEN_FILE_NAME << endl;
 
 
 	OUTPUT_FILE_NAME = string(argv[1]);
 	QUERY_FILE_NAME = string(argv[2]);
 	MODEL_DIR = string(argv[3]);
 	NTCIR_DIR = string(argv[4]);
+	DOC_LEN_FILE_NAME = string(argv[5]);
 
 	cerr << "after set up: " << endl;
 	cerr << "\tout = " << OUTPUT_FILE_NAME << endl;
 	cerr << "\tq = " << QUERY_FILE_NAME << endl;
 	cerr << "\tmodel = " << MODEL_DIR << endl;
 	cerr << "\tNTCIR = " << NTCIR_DIR << endl;
+	cerr << "\tdoc_len_file = " << DOC_LEN_FILE_NAME << endl;
 
 	// build vocabulary (here, for unigram only)
 	
+	cerr << "build_vocabulary()" << endl;
 	build_vocabulary();
 
 	// build document list
 
+	cerr << "build_document_list()" << endl;
 	build_document_list();
+
+	// get real document lengths from file
+
+	cerr << "build_real_doc_len()" << endl;
+	build_real_doc_len();
+
+	cerr << "after build_read_doc_len, REAL_DOC_LENGTHS[100] = " << REAL_DOC_LENGTHS[100] << endl;
+	exit(0);
 
 	// build postings lists, DF, and DOC_LENGTHS
 
@@ -143,7 +162,7 @@ int main(int argc, char* argv[]) {
 
 void print_usage() {
 	cerr << "Usage:" << endl;
-	cerr << "\t./a.out <output_path> <query_path> <model_dir_path> <NTCIR_dir_path>" << endl;
+	cerr << "\t./a.out <output_path> <query_path> <model_dir_path> <NTCIR_dir_path> <doc_len_file>" << endl;
 }
 
 void build_vocabulary() {
@@ -189,6 +208,23 @@ void build_document_list() {
 		counter += 1;
 	}
 	DOC_COUNT = counter;
+}
+
+void build_real_doc_len() {
+	// open file and read it
+	FILE* fp = fopen(DOC_LEN_FILE_NAME.c_str(), "r");
+	if(!fp) {
+		cerr << "cannot open file at: " << DOC_LEN_FILE_NAME << endl;
+		exit(-1);
+	}
+	int counter = 0;
+	while(!feof(fp)) {
+		int tmp;
+		if(fscanf(fp, "%d", &tmp) == EOF)
+			break;
+		REAL_DOC_LENGTHS[counter] = tmp;
+		counter += 1;
+	}
 }
 
 void build_postings() {
@@ -303,12 +339,12 @@ void read_query_and_search() {
 			for(map<int, string>::iterator it = DOC_LIST.begin(); it != DOC_LIST.end(); ++it) {
 				// it->first: the key of the map, i.e., document id
 				// it->second: the value of the map, i.e., the relative path of the doc
-				// double u_sim = compute_uni_similarity(unigrams, it->first);
+				double u_sim = compute_uni_similarity(unigrams, it->first);
 				double b_sim = compute_bi_similarity(bigrams, it->first);
 				// cerr << "b_sim = " << b_sim << endl;
 				// the ratio is defined as a constant at the beginning of this file
-				// double total = (0.8) * u_sim + (0.2) * b_sim;
-				double total = b_sim;
+				double total = (0.8) * u_sim + (0.2) * b_sim;
+				// double total = b_sim;
 				// double total = u_sim;
 				// push into the vector: scores
 				scores.push_back(make_pair(it->second, total));

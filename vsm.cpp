@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <math.h> // for sqrt(), log2()
 #include <algorithm>
+#include <string>
 #define OKAPI_PARAM_B 0.7
 
 using namespace std;
@@ -48,13 +49,26 @@ int main(int argc, char* argv[]) {
 	// argv[1]: output file name
 	// argv[2]: query file name
 	// argv[3]: model directory
-	if(argc != 4) {
+	// argv[4]: (optional) do Rocchio or not (true / false)
+	if(argc < 4) {
 		print_usage();
 		exit(-1);
 	}
 	OUTPUT_FILE_NAME = string(argv[1]);
 	QUERY_FILE_NAME = string(argv[2]);
 	MODEL_DIR = string(argv[3]);
+	if(argc > 4) {
+		if(string(argv[4]).compare("true") == 0)
+			ROCCHIO_FLAG = true;
+	}
+
+	// debug
+	cerr <<  "inside vsm.cpp" << endl;
+	cerr << "OUTPUT_FILE_NAME = " << OUTPUT_FILE_NAME << endl;
+	cerr << "QUERY_FILE_NAME = " << QUERY_FILE_NAME << endl;
+	cerr << "MODEL_DIR = " << MODEL_DIR << endl;
+	cerr << "do rocchio? " << ROCCHIO_FLAG << endl;
+	exit(0);
 
 	// ---------- building up documents ---------- //
 	cerr << "building up documents ..." << endl;
@@ -141,7 +155,7 @@ int main(int argc, char* argv[]) {
 
 void print_usage() {
 	cerr << "Usage:" << endl;
-	cerr << "\t./a.out <Output> <Query> <ModelDir>" << endl;
+	cerr << "\t./a.out <Output> <Query> <ModelDir> <true/false>" << endl;
 }
 
 void doc_build() {
@@ -267,15 +281,15 @@ double compute_similarity(int q_id ,int doc_id) {
 
 	// loop through Q_UNI_POSTINGS
 	// map<int, map<int, int> > Q_UNI_POSTINGS;
-	// for(map<int, map<int, int> >::iterator it = Q_UNI_POSTINGS.begin(); it != Q_UNI_POSTINGS.end(); ++it) {
-	// 	if(Q_UNI_POSTINGS[it->first][q_id] == 0 || UNI_POSTINGS[it->first][doc_id] == 0 || Q_UNI_DF[it->first] == 0 || UNI_DF[it->first] == 0)
-	// 		continue;
-	// 	// w1 = (TF in q) * (IDF in q), with OKAPI normalization on TF
-	// 	double w1 = ((double)(Q_UNI_POSTINGS[it->first][q_id]) / okapi_norm_denominator) * log2((double)QUERY_COUNT / (double)Q_UNI_DF[it->first]);
-	// 	// w2 = (TF in d) * (IDF in d), with OKAPI normalization on TF
-	// 	double w2 = ((double)(UNI_POSTINGS[it->first][doc_id]) / okapi_norm_denominator) * log2((double)DOC_COUNT / (double)UNI_DF[it->first]);
-	// 	uni_score += (w1 * w2);
-	// }
+	for(map<int, map<int, int> >::iterator it = Q_UNI_POSTINGS.begin(); it != Q_UNI_POSTINGS.end(); ++it) {
+		if(Q_UNI_POSTINGS[it->first][q_id] == 0 || UNI_POSTINGS[it->first][doc_id] == 0 || Q_UNI_DF[it->first] == 0 || UNI_DF[it->first] == 0)
+			continue;
+		// w1 = (TF in q) * (IDF in q), with OKAPI normalization on TF
+		double w1 = ((double)(Q_UNI_POSTINGS[it->first][q_id]) / okapi_norm_denominator) * log2((double)QUERY_COUNT / (double)Q_UNI_DF[it->first]);
+		// w2 = (TF in d) * (IDF in d), with OKAPI normalization on TF
+		double w2 = ((double)(UNI_POSTINGS[it->first][doc_id]) / okapi_norm_denominator) * log2((double)DOC_COUNT / (double)UNI_DF[it->first]);
+		uni_score += (w1 * w2);
+	}
 
 	// loop through Q_BI_POSTINGS
 	// map<pair<int, int>, map<int, int> > Q_BI_POSTINGS;
@@ -289,7 +303,7 @@ double compute_similarity(int q_id ,int doc_id) {
 		bi_score += (w1 * w2);
 	}
 
-	total_score = (0.0) * uni_score + (1.0 - 0.0) * bi_score;
+	total_score = (0.2) * uni_score + (1.0 - 0.2) * bi_score;
 	return total_score;
 }
 
@@ -304,18 +318,18 @@ double compute_similarity_rocchio(int q_id ,int doc_id, map<int, int> uni_map, m
 
 	// loop through Q_UNI_POSTINGS
 	// map<int, map<int, int> > Q_UNI_POSTINGS;
-	// for(map<int, map<int, int> >::iterator it = Q_UNI_POSTINGS.begin(); it != Q_UNI_POSTINGS.end(); ++it) {
-	// 	if(Q_UNI_POSTINGS[it->first][q_id] == 0 || UNI_POSTINGS[it->first][doc_id] == 0 || Q_UNI_DF[it->first] == 0 || UNI_DF[it->first] == 0)
-	// 		continue;
-	// 	// w1 = (TF in q) * (IDF in q), with OKAPI normalization on TF
-	// 	double w1 = ((double)(Q_UNI_POSTINGS[it->first][q_id]) / okapi_norm_denominator) * log2((double)QUERY_COUNT / (double)Q_UNI_DF[it->first]);
-	// 	// w2 = (TF in d) * (IDF in d), with OKAPI normalization on TF
-	// 	double w2 = ((double)(UNI_POSTINGS[it->first][doc_id]) / okapi_norm_denominator) * log2((double)DOC_COUNT / (double)UNI_DF[it->first]);
-	// 	if(uni_map[it->first] > 0)
-	// 		uni_score += 2.0 * (w1 * w2);
-	// 	else
-	// 		uni_score += (w1 * w2);
-	// }
+	for(map<int, map<int, int> >::iterator it = Q_UNI_POSTINGS.begin(); it != Q_UNI_POSTINGS.end(); ++it) {
+		if(Q_UNI_POSTINGS[it->first][q_id] == 0 || UNI_POSTINGS[it->first][doc_id] == 0 || Q_UNI_DF[it->first] == 0 || UNI_DF[it->first] == 0)
+			continue;
+		// w1 = (TF in q) * (IDF in q), with OKAPI normalization on TF
+		double w1 = ((double)(Q_UNI_POSTINGS[it->first][q_id]) / okapi_norm_denominator) * log2((double)QUERY_COUNT / (double)Q_UNI_DF[it->first]);
+		// w2 = (TF in d) * (IDF in d), with OKAPI normalization on TF
+		double w2 = ((double)(UNI_POSTINGS[it->first][doc_id]) / okapi_norm_denominator) * log2((double)DOC_COUNT / (double)UNI_DF[it->first]);
+		if(uni_map[it->first] > 0)
+			uni_score += 2.0 * (w1 * w2);
+		else
+			uni_score += (w1 * w2);
+	}
 
 	// loop through Q_BI_POSTINGS
 	// map<pair<int, int>, map<int, int> > Q_BI_POSTINGS;
@@ -332,7 +346,7 @@ double compute_similarity_rocchio(int q_id ,int doc_id, map<int, int> uni_map, m
 			bi_score += (w1 * w2);
 	}
 
-	total_score = (0.0) * uni_score + (1.0 - 0.0) * bi_score;
+	total_score = (0.2) * uni_score + (1.0 - 0.2) * bi_score;
 	return total_score;
 }
 
