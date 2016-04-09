@@ -4,7 +4,6 @@ import sys
 import os
 
 def main():
-	print "hello world!"
 	topic_numbers = read_topic_numbers()
 	ranks = read_rank_file()
 	if len(topic_numbers) != len(ranks):
